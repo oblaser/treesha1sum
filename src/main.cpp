@@ -345,19 +345,19 @@ void process(const fs::path& path, size_t& depth)
         {
             for (const auto& entry : std::filesystem::directory_iterator(path)) { process(entry.path(), depth); }
         }
-        else if (fs::is_symlink(stat))
-        {
-            const fs::path target = fs::weakly_canonical(fs::read_symlink(path));
-
-            cout << std::left;
-            cout << setw(SHA1::digestSize * 2) << ("[" + toString(stat.type()) + "]") << "  " << pathStr(path) << " -> " << pathStr(target);
-            cout << std::left << endl;
-        }
         else
         {
-            cout << std::left;
-            cout << setw(SHA1::digestSize * 2) << ("[" + toString(stat.type()) + "]") << "  " << pathStr(path);
-            cout << std::left << endl;
+            cout << std::left << setw(SHA1::digestSize * 2) << ("[" + toString(stat.type()) + "]") << std::right;
+
+            if (fs::is_symlink(stat))
+            {
+                const fs::path target = fs::weakly_canonical(fs::read_symlink(path));
+
+                cout << "  " << pathStr(path) << " -> " << pathStr(target);
+            }
+            else { cout << "  " << pathStr(path); }
+
+            cout << endl;
         }
     }
 
@@ -381,47 +381,47 @@ std::string toString(const fs::file_type& type)
     switch (type)
     {
     case fs::file_type::none:
-        std::cout << "none";
+        str = "none";
         break;
 
     case fs::file_type::not_found:
-        std::cout << "not found";
+        str = "not found";
         break;
 
     case fs::file_type::regular:
-        std::cout << "regular file";
+        str = "regular file";
         break;
 
     case fs::file_type::directory:
-        std::cout << "directory";
+        str = "directory";
         break;
 
     case fs::file_type::symlink:
-        std::cout << "symlink";
+        str = "symlink";
         break;
 
     case fs::file_type::block:
-        std::cout << "block device";
+        str = "block device";
         break;
 
     case fs::file_type::character:
-        std::cout << "character device";
+        str = "character device";
         break;
 
     case fs::file_type::fifo:
-        std::cout << "fifo/pipe";
+        str = "fifo/pipe";
         break;
 
     case fs::file_type::socket:
-        std::cout << "socket";
+        str = "socket";
         break;
 
     case fs::file_type::unknown:
-        std::cout << "unknown";
+        str = "unknown";
         break;
 
     default:
-        std::cout << "implementation-defined";
+        str = "implementation-defined";
         break;
     }
 
