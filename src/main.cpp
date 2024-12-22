@@ -62,7 +62,7 @@ enum EXITCODE // https://tldp.org/LDP/abs/html/exitcodes.html / on MSW are no pr
 
     EC__begin_ = 79,
 
-    EC_NOT_A_DIR = EC__begin_,
+    // EC_asdf = EC__begin_,
     // EC_..,
 
     EC__end_,
@@ -123,7 +123,7 @@ void printVersion()
 
 
 static bool checkArgs(const std::vector<std::string>& args);
-static int process(const fs::path& dir, size_t& depth);
+static void process(const fs::path& dir, size_t& depth);
 static std::string pathStr(const fs::path& path);
 static std::string toString(const fs::file_type& type);
 
@@ -203,7 +203,9 @@ int main(int argc, char** argv)
         // args.push_back("--help");
         // args.push_back("--version");
 
-        args.push_back("../../test/system/input");
+        // args.push_back("../../test/system/input");
+        // args.push_back("../../test/system/input/empty.txt");
+        args.push_back("../../test/system/input/\xC3\xA4/just another text file.txt");
     }
 #endif
 
@@ -254,7 +256,8 @@ int main(int argc, char** argv)
                 dir;
 #endif
 
-            r = process(dirPath, depth);
+            process(dirPath, depth);
+            r = EC_OK;
         }
     }
     // else
@@ -321,15 +324,8 @@ bool checkArgs(const std::vector<std::string>& args)
     return ok;
 }
 
-int process(const fs::path& path, size_t& depth)
+void process(const fs::path& path, size_t& depth)
 {
-    if ((depth == 0) && !fs::is_directory(path))
-    {
-        cout << "\"" << pathStr(path) << "\" is not a directory" << endl;
-
-        return EC_NOT_A_DIR;
-    }
-
     ++depth;
 
     const fs::file_status stat = fs::symlink_status(path);
@@ -366,7 +362,6 @@ int process(const fs::path& path, size_t& depth)
     }
 
     --depth;
-    return EC_OK;
 }
 
 std::string pathStr(const fs::path& path)
