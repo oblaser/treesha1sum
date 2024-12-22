@@ -1,0 +1,21 @@
+{
+    "configurations": [
+        {
+            "name": "IntelliSense helper",
+            "includePath": [
+                "${workspaceFolder}/src",
+                "${workspaceFolder}/sdk/omw/include",
+                "${sdk}/OpenWRT-19.07.3/toolchain-mipsel_24kc_gcc-7.5.0_musl/include"
+            ],
+            "defines": [
+                "__unix__",
+                "__linux__",
+                "_GNU_SOURCE",
+                "_DEBUG",
+            ],
+            //"compilerPath": "",
+            "cppStandard": "c++17"
+        }
+    ],
+    "version": 4
+}
