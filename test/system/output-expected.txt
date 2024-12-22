@@ -1,0 +1,6 @@
+da39a3ee5e6b4b0d3255bfef95601890afd80709 *empty.txt
+289508fcb1ab8c8d85d48a9047f83727ddf15af7 *lorem ipsum.txt
+f42b0d536697e92f95f21c63a0161708bb2f2152 *ä/just another text file.txt
+5bad3910a14b84999677b58528bd3d96500f1f94 *ä/ü/lorem-ipsum.scite
+c831a7928d2182899d451f2a71174333d374c876 *ä/ü/rand.hxd
+94632af671fb92a682efdb920ea068cbcb084849 *ö/lörëm ïpsüm.txt
