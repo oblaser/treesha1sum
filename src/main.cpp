@@ -371,7 +371,7 @@ std::string pathStr(const fs::path& path)
 {
 #ifdef OMW_PLAT_WIN
     std::string r = path.lexically_normal().u8string();
-    return omw::replaceAll(r, '\\', ' /');
+    return omw::replaceAll(r, '\\', '/');
 #else
     return path.lexically_normal().u8string();
 #endif
