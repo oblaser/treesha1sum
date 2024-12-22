@@ -40,7 +40,7 @@ public:
         update(str);
     }
 
-    explicit SHA1(const uint8_t* data, size_t count)
+    SHA1(const uint8_t* data, size_t count)
     {
         reset();
         update(data, count);
@@ -51,6 +51,8 @@ public:
         reset();
         update(data);
     }
+
+    // no ctor for `std::istream& istream` because the arg can't be const
 
     void reset()
     {

@@ -1,10 +1,11 @@
 /*
 author          Oliver Blaser
-date            19.12.2024
+date            22.12.2024
 copyright       GPL-3.0 - Copyright (c) 2024 Oliver Blaser
 */
 
 #include <filesystem>
+#include <fstream>
 #include <iomanip>
 #include <iostream>
 #include <string>
@@ -46,6 +47,8 @@ bool contains(const std::vector<std::string>& rawArgs, const char* arg)
 
     return r;
 }
+
+bool isOption(const std::string& arg) { return ((arg == noColor) || (arg == help) || (arg == version)); }
 
 } // namespace argstr
 
@@ -225,7 +228,7 @@ int wmain(int argc, wchar_t** argv)
 #ifndef PRJ_DEBUG
     const
 #endif // PRJ_DEBUG
-        std::vector<std::string>& args = rawArgs;
+        auto args = std::vector<std::string>(rawArgs.begin() + 1, rawArgs.end());
 
 #else // OMW_PLAT_WIN
 
@@ -238,15 +241,18 @@ int main(int argc, char** argv)
 #ifndef PRJ_DEBUG
     const
 #endif // PRJ_DEBUG
-        std::vector<std::string>& args = rawArgs;
+        auto args = std::vector<std::string>(rawArgs.begin() + 1, rawArgs.end());
 
 #endif // OMW_PLAT_WIN
 
 #if defined(PRJ_DEBUG) && 1
     if (args.size() == 0)
     {
-        args.push_back("--help");
-        args.push_back("--version");
+        // args.push_back("--no-color");
+        // args.push_back("--help");
+        // args.push_back("--version");
+
+        args.push_back("../../test/system/input");
     }
 #endif
 
@@ -285,13 +291,19 @@ int main(int argc, char** argv)
         else if (argstr::contains(args, argstr::version)) printVersion();
         else
         {
-            fs::path dir;
+            std::string dir = args.back();
             size_t depth = 0;
 
-            if (args.size() > 1) { dir = argv[1]; }
-            else { dir = "."; }
+            if (argstr::isOption(dir)) { dir = "."; }
 
-            r = process(dir, depth);
+            const fs::path dirPath =
+#ifdef OMW_PLAT_WIN
+                omw::windows::u8tows(dir);
+#else
+                dir;
+#endif
+
+            r = process(dirPath, depth);
         }
     }
     // else
@@ -335,7 +347,21 @@ int main(int argc, char** argv)
 
 int process(const fs::path& path, size_t& depth)
 {
-    if ((depth == 0) && !fs::is_directory(path)) { return EC_NOT_A_DIR; }
+    auto pathStr = [](const fs::path& path) {
+#ifdef OMW_PLAT_WIN
+        std::string r = path.lexically_normal().u8string();
+        return omw::replaceAll(r, '\\', ' /');
+#else
+        return path.lexically_normal().u8string();
+#endif
+    };
+
+    if ((depth == 0) && !fs::is_directory(path))
+    {
+        cout << "\"" << pathStr(path) << "\" is not a directory" << endl;
+
+        return EC_NOT_A_DIR;
+    }
 
     ++depth;
 
@@ -343,9 +369,12 @@ int process(const fs::path& path, size_t& depth)
 
     if (fs::is_regular_file(stat))
     {
-        const char* const sha1str = "TODO SHA1";
+        SHA1 sha1;
+        std::ifstream fstream(path, std::ios::binary);
 
-        cout << sha1str << "  " << path << endl;
+        sha1.update(fstream);
+
+        cout << sha1.digest() << " *" << pathStr(path) << endl;
     }
     else
     {
@@ -357,9 +386,9 @@ int process(const fs::path& path, size_t& depth)
         {
             const fs::path target = fs::weakly_canonical(fs::read_symlink(path));
 
-            cout << target.u8string() << " <-  " << path << endl;
+            cout << setw(SHA1::digestSize * 2) << ("[" + toString(stat.type()) + "]") << "  " << pathStr(path) << " -> " << pathStr(target) << endl;
         }
-        else { cout << "[" << toString(stat.type()) << "]  " << path << endl; }
+        else { cout << setw(SHA1::digestSize * 2) << ("[" + toString(stat.type()) + "]") << "  " << pathStr(path) << endl; }
     }
 
     --depth;
