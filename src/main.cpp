@@ -251,7 +251,7 @@ int main(int argc, char** argv)
 
             const fs::path dirPath =
 #ifdef OMW_PLAT_WIN
-                dir; // omw::windows::u8tows(dir);
+                omw::windows::u8tows(dir);
 #else
                 dir;
 #endif
