@@ -28,6 +28,7 @@ namespace fs = std::filesystem;
 
 namespace argstr {
 
+// const char* const changeDir = "--cd";
 const char* const noColor = "--no-color";
 const char* const help = "--help";
 const char* const version = "--version";
@@ -48,7 +49,7 @@ bool contains(const std::vector<std::string>& rawArgs, const char* arg)
     return r;
 }
 
-bool isOption(const std::string& arg) { return ((arg == noColor) || (arg == help) || (arg == version)); }
+bool isOption(const std::string& arg) { return (/*(arg == changeDir) ||*/ (arg == noColor) || (arg == help) || (arg == version)); }
 
 } // namespace argstr
 
@@ -82,6 +83,7 @@ void printHelp()
     cout << "  " << usageString << endl;
     cout << endl;
     cout << "Options:" << endl;
+    // cout << std::left << setw(lw) << std::string("  ") + argstr::changeDir << "change to DIRECTORY before executing" << endl;
     cout << std::left << setw(lw) << std::string("  ") + argstr::noColor << "monochrome console output" << endl;
     cout << std::left << setw(lw) << std::string("  ") + argstr::help << "prints this help text" << endl;
     cout << std::left << setw(lw) << std::string("  ") + argstr::version << "prints version info" << endl;
@@ -116,65 +118,14 @@ void printVersion()
     cout << "This is free software. There is NO WARRANTY." << endl;
 }
 
-std::string toString(const fs::file_type& type)
-{
-    std::string str;
-
-    switch (type)
-    {
-    case fs::file_type::none:
-        std::cout << "none";
-        break;
-
-    case fs::file_type::not_found:
-        std::cout << "not found";
-        break;
-
-    case fs::file_type::regular:
-        std::cout << "regular file";
-        break;
-
-    case fs::file_type::directory:
-        std::cout << "directory";
-        break;
-
-    case fs::file_type::symlink:
-        std::cout << "symlink";
-        break;
-
-    case fs::file_type::block:
-        std::cout << "block device";
-        break;
-
-    case fs::file_type::character:
-        std::cout << "character device";
-        break;
-
-    case fs::file_type::fifo:
-        std::cout << "fifo/pipe";
-        break;
-
-    case fs::file_type::socket:
-        std::cout << "socket";
-        break;
-
-    case fs::file_type::unknown:
-        std::cout << "unknown";
-        break;
-
-    default:
-        std::cout << "implementation-defined";
-        break;
-    }
-
-    return str;
-}
-
 } // namespace
 
 
 
+static bool checkArgs(const std::vector<std::string>& args);
 static int process(const fs::path& dir, size_t& depth);
+static std::string pathStr(const fs::path& path);
+static std::string toString(const fs::file_type& type);
 
 
 
@@ -283,7 +234,7 @@ int main(int argc, char** argv)
 
     int r = EC_ERROR;
 
-    // if (args.isValid())
+    if (/*args.isValid()*/ checkArgs(args))
     {
         r = EC_OK;
 
@@ -298,7 +249,7 @@ int main(int argc, char** argv)
 
             const fs::path dirPath =
 #ifdef OMW_PLAT_WIN
-                omw::windows::u8tows(dir);
+                dir; // omw::windows::u8tows(dir);
 #else
                 dir;
 #endif
@@ -345,17 +296,33 @@ int main(int argc, char** argv)
 
 
 
+bool checkArgs(const std::vector<std::string>& args)
+{
+    bool ok = true;
+
+    for (size_t i = 0; ok && (i < (args.size() - 1)); ++i)
+    {
+        const auto& arg = args[i];
+
+        if (!argstr::isOption(arg))
+        {
+            ok = false;
+
+            cout << "unknown option: \"" << arg << "\"" << endl;
+        }
+    }
+
+    if (!ok)
+    {
+        cout << endl;
+        printUsageAndTryHelp();
+    }
+
+    return ok;
+}
+
 int process(const fs::path& path, size_t& depth)
 {
-    auto pathStr = [](const fs::path& path) {
-#ifdef OMW_PLAT_WIN
-        std::string r = path.lexically_normal().u8string();
-        return omw::replaceAll(r, '\\', ' /');
-#else
-        return path.lexically_normal().u8string();
-#endif
-    };
-
     if ((depth == 0) && !fs::is_directory(path))
     {
         cout << "\"" << pathStr(path) << "\" is not a directory" << endl;
@@ -386,11 +353,82 @@ int process(const fs::path& path, size_t& depth)
         {
             const fs::path target = fs::weakly_canonical(fs::read_symlink(path));
 
-            cout << setw(SHA1::digestSize * 2) << ("[" + toString(stat.type()) + "]") << "  " << pathStr(path) << " -> " << pathStr(target) << endl;
+            cout << std::left;
+            cout << setw(SHA1::digestSize * 2) << ("[" + toString(stat.type()) + "]") << "  " << pathStr(path) << " -> " << pathStr(target);
+            cout << std::left << endl;
         }
-        else { cout << setw(SHA1::digestSize * 2) << ("[" + toString(stat.type()) + "]") << "  " << pathStr(path) << endl; }
+        else
+        {
+            cout << std::left;
+            cout << setw(SHA1::digestSize * 2) << ("[" + toString(stat.type()) + "]") << "  " << pathStr(path);
+            cout << std::left << endl;
+        }
     }
 
     --depth;
     return EC_OK;
+}
+
+std::string pathStr(const fs::path& path)
+{
+#ifdef OMW_PLAT_WIN
+    std::string r = path.lexically_normal().u8string();
+    return omw::replaceAll(r, '\\', ' /');
+#else
+    return path.lexically_normal().u8string();
+#endif
+}
+
+std::string toString(const fs::file_type& type)
+{
+    std::string str;
+
+    switch (type)
+    {
+    case fs::file_type::none:
+        std::cout << "none";
+        break;
+
+    case fs::file_type::not_found:
+        std::cout << "not found";
+        break;
+
+    case fs::file_type::regular:
+        std::cout << "regular file";
+        break;
+
+    case fs::file_type::directory:
+        std::cout << "directory";
+        break;
+
+    case fs::file_type::symlink:
+        std::cout << "symlink";
+        break;
+
+    case fs::file_type::block:
+        std::cout << "block device";
+        break;
+
+    case fs::file_type::character:
+        std::cout << "character device";
+        break;
+
+    case fs::file_type::fifo:
+        std::cout << "fifo/pipe";
+        break;
+
+    case fs::file_type::socket:
+        std::cout << "socket";
+        break;
+
+    case fs::file_type::unknown:
+        std::cout << "unknown";
+        break;
+
+    default:
+        std::cout << "implementation-defined";
+        break;
+    }
+
+    return str;
 }

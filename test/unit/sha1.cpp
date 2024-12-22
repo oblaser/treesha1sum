@@ -43,6 +43,7 @@ int main()
     SHA1 sha1_tmp;
     sha1_tmp.update("abcdefghbcdefghicdefghijdefghijkefghijklfghijklmghijklmnhijklmnoijklmnopjklmnopqklmnopqrlmnopqrsmnopqrstnopqrstu");
 
+    // https://emn178.github.io/online-tools/sha1.html
     std::vector<std::array<std::string, 2>> testVector = {
         { "da39a3ee5e6b4b0d3255bfef95601890afd80709", SHA1() },
         { "da39a3ee5e6b4b0d3255bfef95601890afd80709", SHA1("") },
