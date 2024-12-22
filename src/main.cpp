@@ -231,7 +231,7 @@ int main(int argc, char** argv)
 #if defined(PRJ_DEBUG) && 1
     cout << omw::foreColor(26) << "--======# args #======--\n";
     for (size_t i = 0; i < args.size(); ++i) cout << " " << args[i] << endl;
-    cout << "--======# end args #======--" << endl << omw::defaultForeColor;
+    cout << "--======# end args #======--" << omw::defaultForeColor << endl;
 #endif
 
     int r = EC_ERROR;
@@ -244,7 +244,7 @@ int main(int argc, char** argv)
         else if (argstr::contains(args, argstr::version)) printVersion();
         else
         {
-            std::string dir = args.back();
+            std::string dir = (args.empty() ? "." : args.back());
             size_t depth = 0;
 
             if (argstr::isOption(dir)) { dir = "."; }
@@ -303,15 +303,18 @@ bool checkArgs(const std::vector<std::string>& args)
 {
     bool ok = true;
 
-    for (size_t i = 0; ok && (i < (args.size() - 1)); ++i)
+    if (!args.empty())
     {
-        const auto& arg = args[i];
-
-        if (!argstr::isOption(arg))
+        for (size_t i = 0; ok && (i < (args.size() - 1)); ++i)
         {
-            ok = false;
+            const auto& arg = args[i];
 
-            cout << "unknown option: \"" << arg << "\"" << endl;
+            if (!argstr::isOption(arg))
+            {
+                ok = false;
+
+                cout << "unknown option: \"" << arg << "\"" << endl;
+            }
         }
     }
 
