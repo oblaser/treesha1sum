@@ -18,7 +18,7 @@ const char* const exeName = "treesha1sum"; // eq to the linker setting
 
 const char* const website = "https://github.com/oblaser/treesha1sum";
 
-const omw::Version version(0, 1, 1, "alpha");
+const omw::Version version(0, 1, 1, "");
 
 } // namespace prj
 

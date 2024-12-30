@@ -29,6 +29,7 @@ namespace fs = std::filesystem;
 namespace argstr {
 
 // const char* const changeDir = "--cd";
+const char* const exclude = "--exclude";
 const char* const noColor = "--no-color";
 const char* const help = "--help";
 const char* const version = "--version";
@@ -49,7 +50,7 @@ bool contains(const std::vector<std::string>& rawArgs, const char* arg)
     return r;
 }
 
-bool isOption(const std::string& arg) { return (/*(arg == changeDir) ||*/ (arg == noColor) || (arg == help) || (arg == version)); }
+bool isOption(const std::string& arg) { return (/*(arg == changeDir) ||*/ (arg == exclude) || (arg == noColor) || (arg == help) || (arg == version)); }
 
 } // namespace argstr
 
@@ -84,6 +85,8 @@ void printHelp()
     cout << endl;
     cout << "Options:" << endl;
     // cout << std::left << setw(lw) << std::string("  ") + argstr::changeDir << "change to DIRECTORY before executing" << endl;
+    cout << std::left << setw(lw) << std::string("  ") + argstr::exclude + " NAMES"
+         << "one or more dir entry names to skip, separated by pipe, e.g. \".git|sdk\"" << endl;
     cout << std::left << setw(lw) << std::string("  ") + argstr::noColor << "monochrome console output" << endl;
     cout << std::left << setw(lw) << std::string("  ") + argstr::help << "prints this help text" << endl;
     cout << std::left << setw(lw) << std::string("  ") + argstr::version << "prints version info" << endl;
@@ -123,8 +126,9 @@ void printVersion()
 
 
 static bool checkArgs(const std::vector<std::string>& args);
-static void process(const fs::path& dir, size_t& depth);
+static void process(const fs::path& dir, size_t& depth, const std::vector<std::string>& excludeNames);
 static std::string pathStr(const fs::path& path);
+static std::string entryName(const fs::path& path);
 static std::string toString(const fs::file_type& type);
 
 
@@ -203,9 +207,27 @@ int main(int argc, char** argv)
         // args.push_back("--help");
         // args.push_back("--version");
 
+
+
+        // args.push_back("--exclude");
+        // args.push_back("empty.txt");
+
         // args.push_back("../../test/system/input");
         // args.push_back("../../test/system/input/empty.txt");
-        args.push_back("../../test/system/input/\xC3\xA4/just another text file.txt");
+        // args.push_back("../../test/system/input/\xC3\xA4/just another text file.txt");
+
+
+
+        args.push_back("--exclude");
+        args.push_back(".git|.vs|sdk|CMakeFiles");
+
+        args.push_back("--exclude");
+        args.push_back("Release|Debug|Release_x64|Debug_x64");
+
+        // args.push_back("--exclude");
+        // args.push_back(".gitmodules");
+
+        args.push_back("../../");
     }
 #endif
 
@@ -244,20 +266,61 @@ int main(int argc, char** argv)
         else if (argstr::contains(args, argstr::version)) printVersion();
         else
         {
-            std::string dir = (args.empty() ? "." : args.back());
-            size_t depth = 0;
+            size_t dirArgIdx = 0;
+            std::vector<std::string> excludeNames;
 
-            if (argstr::isOption(dir)) { dir = "."; }
+            for (size_t i = 0; (r == EC_OK) && (i < args.size()); ++i)
+            {
+                if (args[i] == argstr::exclude)
+                {
+                    ++dirArgIdx;
 
-            const fs::path dirPath =
+                    if ((args.size() > 1) && (i <= (args.size() - 3)))
+                    {
+                        ++dirArgIdx;
+
+                        if (omw::contains(args[i + 1], '/')
 #ifdef OMW_PLAT_WIN
-                omw::windows::u8tows(dir);
+                            || omw::contains(args[i + 1], '\\')
+#endif
+                        )
+                        {
+                            cout << omw::fgBrightRed << "E" << omw::fgDefault;
+                            cout << " path or partial path patterns can't be used in the exclude argument" << endl;
+                            r = EC_ERROR;
+                        }
+                        else
+                        {
+                            const auto tmp = omw::stdStringVector(omw::split(args[i + 1], '|'));
+
+                            for (const auto& e : tmp) { excludeNames.push_back(e); }
+                        }
+                    }
+                    else
+                    {
+                        cout << omw::fgBrightRed << "E" << omw::fgDefault;
+                        cout << " missing exclude NAMES" << endl;
+                        r = EC_ERROR;
+                    }
+                }
+            }
+
+            if (r == EC_OK)
+            {
+                std::string dir = ((dirArgIdx == args.size()) ? "." : args.back());
+                size_t depth = 0;
+
+                if (argstr::isOption(dir)) { dir = "."; }
+
+                const fs::path dirPath =
+#ifdef OMW_PLAT_WIN
+                    omw::windows::u8tows(dir);
 #else
-                dir;
+                    dir;
 #endif
 
-            process(dirPath, depth);
-            r = EC_OK;
+                process(dirPath, depth, excludeNames);
+            }
         }
     }
     // else
@@ -302,19 +365,25 @@ int main(int argc, char** argv)
 bool checkArgs(const std::vector<std::string>& args)
 {
     bool ok = true;
+    bool expectString = false;
 
     if (!args.empty())
     {
-        for (size_t i = 0; ok && (i < (args.size() - 1)); ++i)
+        for (size_t i = 0; ok && (i < args.size()); ++i)
         {
             const auto& arg = args[i];
 
             if (!argstr::isOption(arg))
             {
-                ok = false;
+                if (expectString) { expectString = false; }
+                else if (i != (args.size() - 1))
+                {
+                    ok = false;
 
-                cout << "unknown option: \"" << arg << "\"" << endl;
+                    cout << "unknown option: \"" << arg << "\"" << endl;
+                }
             }
+            else if (arg == argstr::exclude) { expectString = true; }
         }
     }
 
@@ -327,40 +396,53 @@ bool checkArgs(const std::vector<std::string>& args)
     return ok;
 }
 
-void process(const fs::path& path, size_t& depth)
+void process(const fs::path& path, size_t& depth, const std::vector<std::string>& excludeNames)
 {
     ++depth;
 
     const fs::file_status stat = fs::symlink_status(path);
 
-    if (fs::is_regular_file(stat))
+    if (fs::is_directory(stat))
     {
-        SHA1 sha1;
-        std::ifstream fstream(path, std::ios::binary);
-
-        sha1.update(fstream);
-
-        cout << sha1.digest() << " *" << pathStr(path) << endl;
-    }
-    else
-    {
-        if (fs::is_directory(stat))
+        for (const auto& entry : std::filesystem::directory_iterator(path))
         {
-            for (const auto& entry : std::filesystem::directory_iterator(path)) { process(entry.path(), depth); }
+            if (!omw::contains(excludeNames, entryName(entry.path()))) { process(entry.path(), depth, excludeNames); }
+        }
+    }
+    else if (!omw::contains(excludeNames, entryName(path)))
+    {
+        if (fs::is_regular_file(stat))
+        {
+            SHA1 sha1;
+            std::ifstream fstream(path, std::ios::binary);
+
+            sha1.update(fstream);
+
+            cout << sha1.digest() << " *" << pathStr(path) << endl;
         }
         else
         {
-            cout << std::left << setw(SHA1::digestSize * 2) << ("[" + toString(stat.type()) + "]") << std::right;
-
-            if (fs::is_symlink(stat))
+            if (fs::is_directory(stat))
             {
-                const fs::path target = fs::weakly_canonical(fs::read_symlink(path));
-
-                cout << "  " << pathStr(path) << " -> " << pathStr(target);
+                for (const auto& entry : std::filesystem::directory_iterator(path))
+                {
+                    if (!omw::contains(excludeNames, entryName(entry.path()))) { process(entry.path(), depth, excludeNames); }
+                }
             }
-            else { cout << "  " << pathStr(path); }
+            else
+            {
+                cout << std::left << setw(SHA1::digestSize * 2) << ("[" + toString(stat.type()) + "]") << std::right;
 
-            cout << endl;
+                if (fs::is_symlink(stat))
+                {
+                    const fs::path target = fs::weakly_canonical(fs::read_symlink(path));
+
+                    cout << "  " << pathStr(path) << " -> " << pathStr(target);
+                }
+                else { cout << "  " << pathStr(path); }
+
+                cout << endl;
+            }
         }
     }
 
@@ -375,6 +457,16 @@ std::string pathStr(const fs::path& path)
 #else
     return path.lexically_normal().u8string();
 #endif
+}
+
+std::string entryName(const fs::path& path)
+{
+    std::string r;
+
+    if (path.has_filename()) { r = path.filename().u8string(); }
+    else { r = path.parent_path().filename().u8string(); }
+
+    return r;
 }
 
 std::string toString(const fs::file_type& type)
