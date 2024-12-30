@@ -76,7 +76,7 @@ const std::string usageString = std::string(prj::exeName) + " [options] [DIRECTO
 
 void printHelp()
 {
-    constexpr int lw = 18;
+    constexpr int lw = 20;
 
     cout << prj::appName << endl;
     cout << endl;
